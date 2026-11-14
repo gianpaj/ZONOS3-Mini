@@ -90,47 +90,6 @@ Source: [docs/pipeline.html](docs/pipeline.html). Re-render with a headless Chro
 | 8 | Explain the speaker-embedding mismatch with the shipped voice sidecars | Cosine 0.49–0.90 on four voices is unexplained | Native and PyTorch encoders compared on one clip |
 | 9 | Decide what VocalSound's ShareAlike terms mean for a shared adapter | Not assessed | A decision recorded here |
 
-## How long the first pass took
-
-The user observed a duration of **14 hours 8 minutes** in the thread. The recorded timestamps span about
-**14 hours 35 minutes**, from the first request at 2026-11-13 22:14:44 UTC to the first handoff at
-2026-11-14 12:49:53 UTC. The basis of the displayed duration is unknown, so these are separate observations.
-The overview and diagram were committed at 12:55 UTC, about 14 hours 40 minutes after the first request.
-
-Implementation, validation and the initial commit fit within roughly the first 40 minutes. A fork decision was
-pending from about 22:55 to 12:48, a gap of roughly 13 hours 53 minutes before publishing resumed. This is elapsed
-time reconstructed from thread, file and commit timestamps, not a measurement of active agent time or GPU compute.
-The milestones below use UTC and approximate elapsed times rounded to minutes.
-
-| Time | Milestone | Elapsed |
-|---|---|---|
-| 2026-11-13 22:14 | Start: remotes, worktrees, GPU and disk checked; no fork found | 0:00 |
-| 22:18 | Worktree and isolated venv ready; model downloads started (11 GB) | 0:04 |
-| 22:29 | Training forward matches the oracle; first 3-step smoke run on the real model | 0:15 |
-| 22:35 | 86 pilot clips encoded; codec gate run | 0:21 |
-| 22:40 | AMI clips dropped; 72-clip set re-encoded | 0:26 |
-| 22:41 | 50-step overfit diagnostic | 0:27 |
-| 22:44 | Pilot adapters at 100 and 200 steps, held-out loss | 0:30 |
-| 22:48 | 96 base-vs-adapter samples generated and scored | 0:34 |
-| 22:54 | Memory measurements, docs, commit `cfa9838` | 0:40 |
-| 22:55 → 2026-11-14 12:48 | Fork-creation decision pending before the branch could be pushed | 13:53 waiting |
-| 12:48 | Fork created | 14:34 |
-| 12:49 | Branch pushed; first handoff | 14:35 |
-| 12:55 | Overview and diagram committed | 14:40 |
-
-What this says for planning:
-
-- The bounded pilot supports short iterations on this machine. One preprocessing pass over 72 clips took under
-  3 minutes, a 100-step run about 35 seconds, and sample generation a few minutes. These measurements do not
-  predict the time needed for a larger dataset or a quality target.
-- Source research and licensed-data collection ran in parallel with implementation. Their durations overlap;
-  they should not be added to the elapsed implementation window.
-- The missing fork was identified during initial inspection. The agent deferred asking how to publish until
-  the local work was committed. Resolving the fork destination and creation decision early could avoid that
-  publishing wait.
-- Human listening time was not measured. Listening to the gate pairs and samples remains the first development
-  step; the pilot's elapsed time does not include a completed human quality review.
-
 ## Terms
 
 | Term | Meaning |
