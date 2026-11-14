@@ -5,7 +5,8 @@ front ends, trains low-rank factors with a teacher-forced forward and saves them
 the format the reference synthesizer and the servers load as an accent.
 
 Scope: a working training path and a small nonverbal-vocalization pilot. It is not a recipe for production quality,
-and it does not reproduce Zyphra's pretraining, DPO or GRPO. Design rationale, measurements and pilot results are in
+and it does not reproduce Zyphra's pretraining, DPO or GRPO. Status, a data-flow diagram, the file map and next steps
+are in [OVERVIEW.md](OVERVIEW.md). Design rationale, measurements and pilot results are in
 [the Agent Note](../.agents/notes/implemented/finetuning/2026-11-13-zonos3-mini-lora-finetuning.md).
 
 ## Setup
