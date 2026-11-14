@@ -92,8 +92,15 @@ Source: [docs/pipeline.html](docs/pipeline.html). Re-render with a headless Chro
 
 ## How long the first pass took
 
-The thread that produced this ran for about 14 hours of wall-clock time. About 40 minutes of that was work; the rest
-was one blocked decision. Times are UTC, from file and commit timestamps on the machine.
+The user observed a duration of **14 hours 8 minutes** in the thread. The recorded timestamps span about
+**14 hours 35 minutes**, from the first request at 2026-11-13 22:14:44 UTC to the first handoff at
+2026-11-14 12:49:53 UTC. The basis of the displayed duration is unknown, so these are separate observations.
+The overview and diagram were committed at 12:55 UTC, about 14 hours 40 minutes after the first request.
+
+Implementation, validation and the initial commit fit within roughly the first 40 minutes. A fork decision was
+pending from about 22:55 to 12:48, a gap of roughly 13 hours 53 minutes before publishing resumed. This is elapsed
+time reconstructed from thread, file and commit timestamps, not a measurement of active agent time or GPU compute.
+The milestones below use UTC and approximate elapsed times rounded to minutes.
 
 | Time | Milestone | Elapsed |
 |---|---|---|
@@ -106,20 +113,23 @@ was one blocked decision. Times are UTC, from file and commit timestamps on the 
 | 22:44 | Pilot adapters at 100 and 200 steps, held-out loss | 0:30 |
 | 22:48 | 96 base-vs-adapter samples generated and scored | 0:34 |
 | 22:54 | Memory measurements, docs, commit `cfa9838` | 0:40 |
-| 22:54 → 2026-11-14 12:48 | **Waiting**: the push needed a fork that did not exist, and creating a public repository needed approval | 13:54 idle |
-| 12:48 | Fork created, branch pushed | 14:34 |
-| 12:55 | Overview and diagram, commit `95ae994` | 14:41 |
+| 22:55 → 2026-11-14 12:48 | Fork-creation decision pending before the branch could be pushed | 13:53 waiting |
+| 12:48 | Fork created | 14:34 |
+| 12:49 | Branch pushed; first handoff | 14:35 |
+| 12:55 | Overview and diagram committed | 14:40 |
 
 What this says for planning:
 
-- The engineering loop is short. One preprocessing pass over 72 clips takes under 3 minutes, a 100-step run about
-  35 seconds, and 96 samples a few minutes. Iterating on data or settings costs minutes, not hours.
-- Two delegated tasks ran in parallel with the implementation: reading the external sources (about 4 minutes) and
-  collecting licensed data (about 12 minutes). The data task was the longest single item on the critical path.
-- The 14 hours came from an unfilled input. The brief's fork URL was a placeholder, and that surfaced only at the
-  push. Settling repository, remote and credential questions before the work starts removes the wait.
-- No human time is in these numbers. Listening to the gate pairs and samples, step 1 below the status table, has not
-  started and is the real remaining cost of the pilot.
+- The bounded pilot supports short iterations on this machine. One preprocessing pass over 72 clips took under
+  3 minutes, a 100-step run about 35 seconds, and sample generation a few minutes. These measurements do not
+  predict the time needed for a larger dataset or a quality target.
+- Source research and licensed-data collection ran in parallel with implementation. Their durations overlap;
+  they should not be added to the elapsed implementation window.
+- The missing fork was identified during initial inspection. The agent deferred asking how to publish until
+  the local work was committed. Resolving the fork destination and creation decision early could avoid that
+  publishing wait.
+- Human listening time was not measured. Listening to the gate pairs and samples remains the first development
+  step; the pilot's elapsed time does not include a completed human quality review.
 
 ## Terms
 
