@@ -90,6 +90,37 @@ Source: [docs/pipeline.html](docs/pipeline.html). Re-render with a headless Chro
 | 8 | Explain the speaker-embedding mismatch with the shipped voice sidecars | Cosine 0.49–0.90 on four voices is unexplained | Native and PyTorch encoders compared on one clip |
 | 9 | Decide what VocalSound's ShareAlike terms mean for a shared adapter | Not assessed | A decision recorded here |
 
+## How long the first pass took
+
+The thread that produced this ran for about 14 hours of wall-clock time. About 40 minutes of that was work; the rest
+was one blocked decision. Times are UTC, from file and commit timestamps on the machine.
+
+| Time | Milestone | Elapsed |
+|---|---|---|
+| 2026-11-13 22:14 | Start: remotes, worktrees, GPU and disk checked; no fork found | 0:00 |
+| 22:18 | Worktree and isolated venv ready; model downloads started (11 GB) | 0:04 |
+| 22:29 | Training forward matches the oracle; first 3-step smoke run on the real model | 0:15 |
+| 22:35 | 86 pilot clips encoded; codec gate run | 0:21 |
+| 22:40 | AMI clips dropped; 72-clip set re-encoded | 0:26 |
+| 22:41 | 50-step overfit diagnostic | 0:27 |
+| 22:44 | Pilot adapters at 100 and 200 steps, held-out loss | 0:30 |
+| 22:48 | 96 base-vs-adapter samples generated and scored | 0:34 |
+| 22:54 | Memory measurements, docs, commit `cfa9838` | 0:40 |
+| 22:54 → 2026-11-14 12:48 | **Waiting**: the push needed a fork that did not exist, and creating a public repository needed approval | 13:54 idle |
+| 12:48 | Fork created, branch pushed | 14:34 |
+| 12:55 | Overview and diagram, commit `95ae994` | 14:41 |
+
+What this says for planning:
+
+- The engineering loop is short. One preprocessing pass over 72 clips takes under 3 minutes, a 100-step run about
+  35 seconds, and 96 samples a few minutes. Iterating on data or settings costs minutes, not hours.
+- Two delegated tasks ran in parallel with the implementation: reading the external sources (about 4 minutes) and
+  collecting licensed data (about 12 minutes). The data task was the longest single item on the critical path.
+- The 14 hours came from an unfilled input. The brief's fork URL was a placeholder, and that surfaced only at the
+  push. Settling repository, remote and credential questions before the work starts removes the wait.
+- No human time is in these numbers. Listening to the gate pairs and samples, step 1 below the status table, has not
+  started and is the real remaining cost of the pilot.
+
 ## Terms
 
 | Term | Meaning |
