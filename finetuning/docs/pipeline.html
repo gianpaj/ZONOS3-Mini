@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ZONOS3 Mini LoRA fine-tuning: data flow</title>
+<style>
+  :root { --ink:#1b2430; --mute:#5b6878; --line:#9aa7b6; --bg:#f6f8fb; --card:#fff;
+          --data:#e8f1fb; --dataB:#3b78c4; --frozen:#eef0f3; --frozenB:#7b8794;
+          --train:#fdeedd; --trainB:#d9822b; --check:#e6f5ec; --checkB:#2f9461; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.4 "DejaVu Sans", Arial, sans-serif; }
+  .page { width:1500px; padding:28px 32px 26px; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  .sub { color:var(--mute); margin:0 0 18px; }
+  .legend { display:flex; gap:18px; margin-bottom:16px; font-size:12.5px; color:var(--mute); }
+  .legend span { display:inline-flex; align-items:center; gap:6px; }
+  .sw { width:14px; height:14px; border-radius:3px; border:1.5px solid; display:inline-block; }
+  .row { display:grid; grid-template-columns:150px 1fr; gap:14px; margin-bottom:10px; align-items:stretch; }
+  .stage { background:var(--ink); color:#fff; border-radius:8px; padding:10px 12px; display:flex; flex-direction:column; justify-content:center; }
+  .stage b { font-size:15px; }
+  .stage small { opacity:.75; font-size:11.5px; margin-top:3px; }
+  .lane { display:flex; align-items:stretch; gap:0; }
+  .box { flex:1; border:1.5px solid; border-radius:8px; padding:9px 11px; background:var(--card); min-width:0; }
+  .box h3 { margin:0 0 3px; font-size:13.5px; }
+  .box p { margin:0; font-size:12px; color:var(--mute); }
+  .box code { font:11.5px "DejaVu Sans Mono", monospace; color:var(--ink); }
+  .data { background:var(--data); border-color:var(--dataB); }
+  .frozen { background:var(--frozen); border-color:var(--frozenB); }
+  .train { background:var(--train); border-color:var(--trainB); }
+  .check { background:var(--check); border-color:var(--checkB); }
+  .arrow { flex:0 0 30px; display:flex; align-items:center; justify-content:center; color:var(--line); font-size:20px; }
+  .down { margin-left:164px; color:var(--line); font-size:18px; line-height:1; margin-bottom:8px; }
+  .split { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:16px; }
+  .panel { background:var(--card); border:1px solid #d7dde5; border-radius:8px; padding:12px 14px; }
+  .panel h2 { font-size:14px; margin:0 0 8px; }
+  .seq { display:flex; gap:3px; font:11.5px "DejaVu Sans Mono", monospace; margin-bottom:8px; }
+  .seq div { padding:7px 6px; border-radius:5px; border:1.5px solid; text-align:center; }
+  .panel ul { margin:0; padding-left:18px; font-size:12.5px; color:var(--mute); }
+  .panel li { margin-bottom:2px; }
+  table { border-collapse:collapse; width:100%; font-size:12.5px; }
+  td, th { text-align:left; padding:3px 8px 3px 0; border-bottom:1px solid #e6eaef; }
+  th { color:var(--mute); font-weight:normal; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>ZONOS3 Mini LoRA fine-tuning: data flow</h1>
+  <p class="sub">From waveform and text to a served adapter. Each row is one command in <code>finetuning/</code>; the frozen models never receive gradients.</p>
+  <div class="legend">
+    <span><i class="sw" style="background:var(--data);border-color:var(--dataB)"></i>data on disk</span>
+    <span><i class="sw" style="background:var(--frozen);border-color:var(--frozenB)"></i>frozen model</span>
+    <span><i class="sw" style="background:var(--train);border-color:var(--trainB)"></i>trained (LoRA only)</span>
+    <span><i class="sw" style="background:var(--check);border-color:var(--checkB)"></i>gate or check</span>
+  </div>
+
+  <div class="row">
+    <div class="stage"><b>1. Describe</b><small>by hand</small></div>
+    <div class="lane">
+      <div class="box data"><h3>Audio clips</h3><p>target clip + a separate reference clip of the same speaker</p></div>
+      <div class="arrow">+</div>
+      <div class="box data"><h3>manifest.jsonl</h3><p>id, audio, text with tags like <code>[sigh]</code>, language, event label, speaker, source, split, licence, ref_audio</p></div>
+      <div class="arrow">→</div>
+      <div class="box check"><h3>Manifest validation</h3><p>unique ids; train and heldout share no speaker or source; a clip is never its own reference</p></div>
+    </div>
+  </div>
+  <div class="down">↓</div>
+
+  <div class="row">
+    <div class="stage"><b>2. Tokenize</b><small>preprocess · GPU 5.6 GiB</small></div>
+    <div class="lane">
+      <div class="box frozen"><h3>Text normalizer + SuperBPE</h3><p>text → ids (BOS, pieces, EOS); fails if a tag is altered</p></div>
+      <div class="arrow">+</div>
+      <div class="box frozen"><h3>ZAC-1 encoder + W2V-BERT teacher</h3><p>44.1 kHz mono → codes [frames, 10] at 15 Hz</p></div>
+      <div class="arrow">+</div>
+      <div class="box frozen"><h3>MECT speaker encoder</h3><p>reference clip → 192-d embedding (CPU), plus its codes</p></div>
+      <div class="arrow">→</div>
+      <div class="box data"><h3>Token cache</h3><p><code>&lt;id&gt;.npz</code>, <code>index.jsonl</code>, <code>meta.json</code> with codec and tokenizer hashes</p></div>
+    </div>
+  </div>
+  <div class="down">↓</div>
+
+  <div class="row">
+    <div class="stage"><b>3. Codec gate</b><small>codec_gate · event_probe</small></div>
+    <div class="lane">
+      <div class="box frozen"><h3>iSTFT decoder</h3><p>cached codes → reconstruction</p></div>
+      <div class="arrow">→</div>
+      <div class="box data"><h3>input / recon pairs</h3><p>WAV pairs, <code>report.json</code>, listening checklist</p></div>
+      <div class="arrow">→</div>
+      <div class="box check"><h3>Does the codec keep the event?</h3><p>listen, plus log-mel error and AudioSet tagger scores. Drop a class the codec loses: LoRA cannot restore it</p></div>
+    </div>
+  </div>
+  <div class="down">↓</div>
+
+  <div class="row">
+    <div class="stage"><b>4. Train</b><small>train · GPU 2.7–5.1 GiB</small></div>
+    <div class="lane">
+      <div class="box data"><h3>One sequence</h3><p>prompt rows + delayed audio rows; targets = next row</p></div>
+      <div class="arrow">→</div>
+      <div class="box frozen"><h3>Base LM, 886 M, bf16</h3><p>9 GDN + 2 attention layers, MoE router and experts, head: all frozen</p></div>
+      <div class="arrow">+</div>
+      <div class="box train"><h3>LoRA factors, 1.2 M</h3><p>on in_proj, wq, wkv, wo, latent_down, latent_up</p></div>
+      <div class="arrow">→</div>
+      <div class="box train"><h3>Masked cross-entropy</h3><p>codes and EOA only → backward → AdamW step</p></div>
+      <div class="arrow">→</div>
+      <div class="box data"><h3>&lt;name&gt;.pt + .json</h3><p><code>zonos-accent-lora/1</code> adapter and run report</p></div>
+    </div>
+  </div>
+  <div class="down">↓</div>
+
+  <div class="row">
+    <div class="stage"><b>5. Verify</b><small>check · evaluate</small></div>
+    <div class="lane">
+      <div class="box check"><h3>Forward parity</h3><p>training forward vs inference oracle, same rows</p></div>
+      <div class="arrow">+</div>
+      <div class="box check"><h3>Reload in a fresh process</h3><p>logits equal the ones stored before saving</p></div>
+      <div class="arrow">+</div>
+      <div class="box check"><h3>Served as an accent</h3><p>upstream loader gives the same logits</p></div>
+      <div class="arrow">+</div>
+      <div class="box check"><h3>Held-out loss</h3><p>base vs adapter per event label</p></div>
+    </div>
+  </div>
+  <div class="down">↓</div>
+
+  <div class="row">
+    <div class="stage"><b>6. Generate</b><small>request · generate</small></div>
+    <div class="lane">
+      <div class="box data"><h3>Request JSON</h3><p>text, accent = adapter name, speaker embedding, seed</p></div>
+      <div class="arrow">→</div>
+      <div class="box frozen"><h3>Reference synthesizer</h3><p>base LM + adapter at strength 1, sampled row by row, then the decoder</p></div>
+      <div class="arrow">→</div>
+      <div class="box data"><h3>WAV</h3><p>same seed with and without the adapter</p></div>
+      <div class="arrow">→</div>
+      <div class="box check"><h3>Is the event audible?</h3><p>listen; tagger scores base vs adapter</p></div>
+    </div>
+  </div>
+
+  <div class="split">
+    <div class="panel">
+      <h2>What one training sequence looks like</h2>
+      <div class="seq">
+        <div style="flex:1.1;background:var(--frozen);border-color:var(--frozenB)">speaker row<br>or ref prefix</div>
+        <div style="flex:1;background:var(--frozen);border-color:var(--frozenB)">3 condition<br>rows</div>
+        <div style="flex:1.6;background:var(--frozen);border-color:var(--frozenB)">BOS text EOS</div>
+        <div style="flex:3.4;background:var(--train);border-color:var(--trainB)">delayed audio rows: frame f of codebook j in row f + j, then one EOA per codebook</div>
+      </div>
+      <ul>
+        <li>Grey rows are context only. Orange rows carry the loss.</li>
+        <li>The logits of a row predict the audio columns of the next row.</li>
+        <li>Ignored: the leading delay triangle and the padding after each EOA.</li>
+        <li>One sequence per forward, fresh state, so nothing leaks between examples.</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h2>Where each piece runs</h2>
+      <table>
+        <tr><th>Piece</th><th>Process</th><th>Gradients</th></tr>
+        <tr><td>Codec encoder, teacher, speaker encoder</td><td>preprocess only</td><td>none</td></tr>
+        <tr><td>Base LM weights</td><td>train, check, evaluate, generate</td><td>none</td></tr>
+        <tr><td>LoRA factors</td><td>train</td><td>yes</td></tr>
+        <tr><td>Decoder</td><td>codec gate, generate</td><td>none</td></tr>
+        <tr><td>AudioSet tagger</td><td>event_probe (CPU)</td><td>none</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+</body>
+</html>

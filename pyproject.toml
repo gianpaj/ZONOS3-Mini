@@ -30,8 +30,8 @@ phonemize = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["model/tests", "servers/sgl/tests", "servers/mlx/tests", "tools/tests", "servers/api/tests/test_spec.py"]
-pythonpath = ["tools"]
+testpaths = ["model/tests", "servers/sgl/tests", "servers/mlx/tests", "tools/tests", "servers/api/tests/test_spec.py", "finetuning/tests"]
+pythonpath = ["tools", "."]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
